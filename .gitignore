@@ -1,0 +1,9 @@
+target/
+data/
+.idea/
+*.iml
+.env
+*.log
+tools/
+test-results/
+.mvn-cache/
