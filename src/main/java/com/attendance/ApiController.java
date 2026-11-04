@@ -16,17 +16,18 @@ public class ApiController {
     @GetMapping("/employees") Object employees() { return service.employees(); }
     @PostMapping("/employees") void add(@RequestBody Map<String,Object> data) { service.addEmployee(data); }
     @PatchMapping("/employees/{id}") void toggle(@PathVariable long id,@RequestBody Map<String,Boolean> data) { if(!data.containsKey("active")||data.get("active")==null) throw new IllegalArgumentException("缺少人员状态"); service.toggleEmployee(id,data.get("active")); }
-    public record FaceInput(List<Double> descriptor,String action) {}
+    public record FaceInput(List<Double> descriptor,String action,LocationPolicy.Position location) {}
     @PostMapping("/employees/{id}/face") void enroll(@PathVariable long id,@RequestBody FaceInput input) throws Exception { service.enroll(id,input.descriptor()); }
-    @PostMapping("/recognize") Object recognize(@RequestBody FaceInput input) { return service.recognize(input.descriptor(),input.action()); }
+    @PostMapping("/recognize") Object recognize(@RequestBody FaceInput input) { return service.recognize(input.descriptor(),input.action(),input.location()); }
+    @PostMapping("/location/check") Object checkLocation(@RequestBody LocationPolicy.Position position) { return service.checkLocation(position); }
     @GetMapping("/settings") Object settings() { return service.settings(); }
     @PutMapping("/settings") void settings(@RequestBody Map<String,Object> data) { service.saveSettings(data); }
     @GetMapping("/records") Object records(@RequestParam LocalDate from,@RequestParam LocalDate to) { return service.records(from,to); }
     @PostMapping("/records/{id}/resolve") void resolve(@PathVariable long id,@RequestBody Map<String,String> input) { service.resolve(id,input.get("note")); }
     String csv(Object value) { String s=Objects.toString(value,""); if(s.matches("^[=+@\\-\\t\\r].*")) s="'"+s; return "\""+s.replace("\"","\"\"")+"\""; }
     @GetMapping(value="/export",produces="text/csv;charset=UTF-8") ResponseEntity<String> export(@RequestParam LocalDate from,@RequestParam LocalDate to) {
-        var out=new StringBuilder("\uFEFF姓名,工号,部门,日期,签到,签退,状态,来源,处理说明\r\n");
-        for(var r:service.records(from,to)) { out.append(String.join(",",List.of("name","code","department","day","check_in","check_out","status","source","note").stream().map(k->csv(r.get(k))).toList())).append("\r\n"); }
+        var out=new StringBuilder("\uFEFF姓名,工号,部门,日期,签到,签退,状态,来源,处理说明,签到地点,签到距离(米),签退地点,签退距离(米)\r\n");
+        for(var r:service.records(from,to)) { out.append(String.join(",",List.of("name","code","department","day","check_in","check_out","status","source","note","check_in_site","check_in_site_distance","check_out_site","check_out_site_distance").stream().map(k->csv(r.get(k))).toList())).append("\r\n"); }
         return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=attendance-"+from+".csv").body(out.toString());
     }
     @ExceptionHandler({IllegalArgumentException.class,java.time.DateTimeException.class,DataIntegrityViolationException.class}) ResponseEntity<?> bad(Exception e) {
